@@ -1,2 +1,0 @@
-internship_task
--DCATKIN_DEVEL_PREFIX=/home/marui-y/zx120_sample/devel -DCMAKE_INSTALL_PREFIX=/home/marui-y/zx120_sample/install -G Unix Makefiles

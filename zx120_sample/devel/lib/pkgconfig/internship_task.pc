@@ -1,8 +1,0 @@
-prefix=/home/marui-y/zx120_sample/devel
-
-Name: internship_task
-Description: Description of internship_task
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: std_msgs
