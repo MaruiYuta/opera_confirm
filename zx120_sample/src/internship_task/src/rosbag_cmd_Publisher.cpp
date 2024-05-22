@@ -13,7 +13,7 @@ std::vector<double> joint_pos(NUM_AXIS);//分解したcmdを格納するvector
 std::vector<double> joint_return_pos(NUM_AXIS);//戻り値のcmdを格納するvector
 std::vector<std::string> axises = {"Swing","boom","arm","bucket"};//文字列配列
 
-void JointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)//cmd分解
+void JointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)//rosbagから関節角度を取得し格納するコールバック関数
 {
     for(int i = 0; i < msg->name.size();i++)
     {
@@ -37,7 +37,7 @@ void JointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)//cmd分解
     flag = true;
 }
 
-void JointStateDiffCallback(const sensor_msgs::JointState::ConstPtr &msg){
+void JointStateDiffCallback(const sensor_msgs::JointState::ConstPtr &msg){//unityから関節角度を取得し格納するコールバック関数
     for(int i = 0;i<msg->name.size();i++){
         if (msg->name[i] == "swing_joint"){
             joint_return_pos[i] = msg->position[i];
@@ -50,7 +50,7 @@ void JointStateDiffCallback(const sensor_msgs::JointState::ConstPtr &msg){
         {
             joint_return_pos[i] = msg->position[i];
         }
-        else if (msg->name[i] == "boom_joint")
+        else if (msg->name[i] == "bucket_joint")
         {
             joint_return_pos[i] = msg->position[i];
         }
@@ -91,12 +91,12 @@ int main(int argc,char **argv)
 
     while (ros::ok())
     {
-    joint_cmd[SWING].data = -0.012806;
+    joint_cmd[SWING].data = -0.012806;//コールバックが行われるまではrosbagの一番最初の関節角データを入れておく
     joint_cmd[BOOM].data = -0.976184;
     joint_cmd[ARM].data = 2.830586;
     joint_cmd[BUCKET].data = -0.118901;
 
-    if (flag)
+    if (flag)//もしコールバックが実行されrosbagから関節角度を取得できたらjoint_cmd配列に格納する
     {
     joint_cmd[SWING].data = joint_pos[SWING];
     joint_cmd[BOOM].data = joint_pos[BOOM];
@@ -104,7 +104,7 @@ int main(int argc,char **argv)
     joint_cmd[BUCKET].data = joint_pos[BUCKET];        
     }
 
-    return_cmd[SWING].data = joint_return_pos[SWING];
+    return_cmd[SWING].data = joint_return_pos[SWING];//unityから取得した関節角度をjoint_return_pos配列に格納する
     return_cmd[BOOM].data = joint_return_pos[BOOM];
     return_cmd[ARM].data = joint_return_pos[ARM];
     return_cmd[BUCKET].data = joint_return_pos[BUCKET];
@@ -112,7 +112,7 @@ int main(int argc,char **argv)
     ROS_INFO("Swing=%f,Boom=%f,Arm=%f,Bucket=%f",joint_cmd[SWING].data,joint_cmd[BOOM].data,joint_cmd[ARM].data,joint_cmd[BUCKET].data);
     ROS_INFO("Now Sim_AXIS Swing=%f,Boom=%f,Arm=%f,Bucket=%f",return_cmd[SWING].data,return_cmd[BOOM].data,return_cmd[ARM].data,joint_cmd[BUCKET].data);
 
-    swing_cmd_pub.publish(joint_cmd[SWING]);
+    swing_cmd_pub.publish(joint_cmd[SWING]);//rosbagの関節角を保存したjoint_cmdをパブリッシュ
     boom_cmd_pub.publish(joint_cmd[BOOM]);
     arm_cmd_pub.publish(joint_cmd[ARM]);
     bucket_cmd_pub.publish(joint_cmd[BUCKET]);
@@ -120,7 +120,7 @@ int main(int argc,char **argv)
     if (flag)
     {
     for (int i = 0; i < NUM_AXIS; i++) {
-        joint_Diff[i] = joint_cmd[i].data - joint_return_pos[i];
+        joint_Diff[i] = joint_cmd[i].data - joint_return_pos[i];//rosbagから取得した関節角度(rad)-シミュレータから取得した関節角度(rad)
         ROS_INFO("joint_Diff[%d]:%f", i, joint_Diff[i]);
 
         double squared_value = pow(joint_Diff[i], 2.0);
