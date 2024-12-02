@@ -8,19 +8,24 @@ public class SoilParticleSettings : MonoBehaviour
     public static SoilParticleSettings instance = null;
 
     public bool enable = true;
-    public float particleVisualRadius = 0.2f;
-    public double partileStickDistance = 0.25;
-    public float stickForce = 30.0f;
+    public float particleVisualRadius = 0.0f;
+    public float partileStickDistance = 0.0f;
+    public float stickForce = 0.0f;
+    public Vector2 m_AngleOfRepose = new Vector2(21.0f, 21.0f);//x軸方向、y軸方向に対する安息角
 
-    [SerializeField]
-    public Vector2 m_AngleOfRepose = new Vector2(30.0f, 45.0f);
+    // [SerializeField]
+    // public Vector2 m_AngleOfRepose = new Vector2(21.0f, 21.0f);//x軸方向、y軸方向に対する安息角
     [SerializeField]
     public int m_ReposeJitter = 0;
 
     public float syncPeriod = 1.0f;
 
     private float timeElapsed = 0.0f;
-    
+
+    private const string ParticleRadiusKey = "ParticleVisualRadius";
+    private const string StickForceKey = "StickForce";
+    private const string partileStickDistanceKey = "partileStickDistance";
+
     ComputeShader cs = null;
     int thermalKernelIdx = -1;
     int xRes = -1;
@@ -46,6 +51,10 @@ public class SoilParticleSettings : MonoBehaviour
             Destroy(gameObject);
         }
 
+        // Load particleVisualRadius and stickForce from PlayerPrefs
+        particleVisualRadius = PlayerPrefs.GetFloat(ParticleRadiusKey, particleVisualRadius);
+        stickForce = PlayerPrefs.GetFloat(StickForceKey, stickForce);
+        partileStickDistance = PlayerPrefs.GetFloat(partileStickDistanceKey, partileStickDistance);
 
         cs = AssetDatabase.LoadAssetAtPath<ComputeShader>("Packages/com.unity.terrain-tools/Editor/TerrainTools/Compute/Thermal.compute");
         if (cs == null)
@@ -57,9 +66,19 @@ public class SoilParticleSettings : MonoBehaviour
         cs2 = Instantiate(Resources.Load<ComputeShader>("Dig"));
         if (cs2 == null)
         {
-            throw new MissingReferenceException("Could not find compute shader fo digging");
+            throw new MissingReferenceException("Could not find compute shader for digging");
         }
         digKernelIdx = cs2.FindKernel("Dig");
+    }
+
+    public void SaveToPlayerPrefs()
+    {
+        PlayerPrefs.SetFloat("ParticleVisualRadius", particleVisualRadius);
+        PlayerPrefs.SetFloat("StickForce", stickForce);
+        PlayerPrefs.SetFloat("PartileStickDistance", partileStickDistance);
+        PlayerPrefs.SetFloat("AngleOfReposeX", m_AngleOfRepose.x);
+        PlayerPrefs.SetFloat("AngleOfReposeY", m_AngleOfRepose.y);
+        PlayerPrefs.Save();
     }
 
     private void Start()
@@ -103,6 +122,44 @@ public class SoilParticleSettings : MonoBehaviour
         cs.SetTexture(thermalKernelIdx, "Sediment", sedimentRT);
 
         timeElapsed = 0.0f;
+
+        // Log the current value of particleVisualRadius and stickForce
+        Debug.Log("Current particleVisualRadius: " + particleVisualRadius);
+        Debug.Log("Current stickForce: " + stickForce);
+        Debug.Log("Current partileStickDistance: " + partileStickDistance);
+
+        // Apply the particleVisualRadius to existing particles
+        UpdateParticleSizes();
+    }
+
+    private void UpdateParticleSizes()
+    {
+        // Find all particles in the scene and update their size
+        var particles = GameObject.FindGameObjectsWithTag("particle"); // Assume particles have the tag "particle"
+        foreach (var particle in particles)
+        {
+            var particleRenderer = particle.GetComponent<Renderer>();
+            if (particleRenderer != null)
+            {
+                particleRenderer.transform.localScale = Vector3.one * particleVisualRadius;
+            }
+        }
+    }
+
+    private void Update()
+    {
+        // Debugging: Reset particleVisualRadius to initial value on key press
+        if (Input.GetKeyDown(KeyCode.R)) // 任意のキーを設定
+        {
+            particleVisualRadius = 0.01f;
+            PlayerPrefs.SetFloat(ParticleRadiusKey, particleVisualRadius);
+            PlayerPrefs.Save();
+
+            // Apply the particleVisualRadius to existing particles
+            UpdateParticleSizes();
+
+            Debug.Log("particleVisualRadius has been reset to initial value: " + particleVisualRadius);
+        }
     }
 
     void OnApplicationQuit()
@@ -111,6 +168,16 @@ public class SoilParticleSettings : MonoBehaviour
         if (heightmapRT1 != null) heightmapRT1.Release();
         if (sedimentRT != null) sedimentRT.Release();
         gameObject.GetComponent<Terrain>().terrainData.SetHeights(0, 0, originalHeights);
+
+        // particleVisualRadius += 0.00005f;
+        // stickForce += 0.025f;
+        // partileStickDistance += 0.0001f;
+
+        PlayerPrefs.SetFloat(ParticleRadiusKey, particleVisualRadius);
+        PlayerPrefs.SetFloat(StickForceKey, stickForce);
+        PlayerPrefs.SetFloat(partileStickDistanceKey,partileStickDistance);
+        SaveToPlayerPrefs();
+        PlayerPrefs.Save();
     }
 
     public static void ModifyTerrain(Vector3 point, float diff)
@@ -157,7 +224,7 @@ public class SoilParticleSettings : MonoBehaviour
         cs.SetTexture(thermalKernelIdx, "TerrainHeightPrev", heightmapRT0);
         cs.SetTexture(thermalKernelIdx, "TerrainHeight", heightmapRT1);
 
-        Vector2 jitteredTau = m_AngleOfRepose + new Vector2(0.9f * (float)m_ReposeJitter * (UnityEngine.Random.value - 0.5f), 0.9f * (float)m_ReposeJitter * (UnityEngine.Random.value - 0.5f));
+        Vector2 jitteredTau = m_AngleOfRepose + new Vector2(0.9f * (float)m_ReposeJitter * (UnityEngine.Random.value - 0.5f), 0.9f * (float)m_ReposeJitter * (UnityEngine.Random.value - 0.5f));
         jitteredTau.x = Mathf.Clamp(jitteredTau.x, 0.0f, 89.9f);
         jitteredTau.y = Mathf.Clamp(jitteredTau.y, 0.0f, 89.9f);
         Vector2 m = new Vector2(Mathf.Tan(jitteredTau.x * Mathf.Deg2Rad), Mathf.Tan(jitteredTau.y * Mathf.Deg2Rad));
@@ -197,8 +264,8 @@ public class SoilParticleSettings : MonoBehaviour
         }
         terrainData.SyncHeightmap();
 
-        // swap
-        var temp = heightmapRT0;
+        // swap
+        var temp = heightmapRT0;
         heightmapRT0 = heightmapRT1;
         heightmapRT1 = temp;
 
